@@ -7,51 +7,85 @@
 
 #include "mainwindow.h"
 
+static void cb_new_pad (GstElement *element, GstPad *pad, gpointer data)
+{
+  gchar *name;
+  GstElement *other = (GstElement*)data;
+
+  name = gst_pad_get_name (pad);
+  g_print ("A new pad %s was created for %s\n", name, gst_element_get_name(element));
+  g_free (name);
+
+  g_print ("element %s will be linked to %s\n",
+           gst_element_get_name(element),
+           gst_element_get_name(other));
+  gst_element_link(element, other);
+}
+
+
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
 {
     QWidget *widget = new QWidget(this);
     widget->setGeometry(0,0,1280,800);
-    
+
     QWidget *widget2 = new QWidget(this);
     widget2->setGeometry(0,0,640,400);
     GError *err = NULL;
-    GstElement  *sink;
+    GstElement  *sink, *decodebin, *transform;
     
     /* Create gstreamer elements */
-    pipeline1 = gst_parse_launch( "rtspsrc location=rtsp://root:pass@80.251.97.97/axis-media/media.amp?streamprofile=MMI ! decodebin ! qwidget5videosink name=videosink", &err );
-//    pipeline1 = gst_parse_launch( "videotestsrc ! qwidget5videosink name=videosink", &err );
-    pipeline2 = gst_parse_launch( "videotestsrc ! qwidget5videosink name=videosink", &err );
+    pipeline1 = gst_parse_launch( "rtspsrc location=rtsp://root:pass@80.251.97.97/axis-media/media.amp?streamprofile=MMI ! decodebin name=decodebin ! imxg2dvideotransform name=transform ! video/x-raw, width=1280, height=800, format=BGRA ! qwidget5videosink name=videosink sync=false", &err );
+    pipeline2 = gst_parse_launch( "rtspsrc location=rtsp://root:pass@80.251.97.98/axis-media/media.amp?streamprofile=MMI ! decodebin name=decodebin ! imxg2dvideotransform name=transform ! video/x-raw, width=640, height=400, format=BGRA ! qwidget5videosink name=videosink sync=false", &err );
+
+    //pipeline1 = gst_parse_launch( "videotestsrc ! qwidget5videosink name=videosink", &err );
+    //pipeline2 = gst_parse_launch( "videotestsrc ! qwidget5videosink name=videosink", &err );
 
 
     if (!pipeline1 || !pipeline2) {
         g_printerr ("One element could not be created. Exiting.\n");
     }
 
+    decodebin = gst_bin_get_by_name( GST_BIN( pipeline1 ), "decodebin" );
+    transform = gst_bin_get_by_name( GST_BIN( pipeline1 ), "transform" );
     sink = gst_bin_get_by_name( GST_BIN( pipeline1 ), "videosink" );
+
+    g_signal_connect (decodebin, "pad-added", G_CALLBACK (cb_new_pad), transform);
     g_object_set (sink, "widget", (void*) widget, NULL);
+    g_object_unref (decodebin);
+    g_object_unref (transform);
     g_object_unref (sink);
 
+    decodebin = gst_bin_get_by_name( GST_BIN( pipeline2 ), "decodebin" );
+    transform = gst_bin_get_by_name( GST_BIN( pipeline2 ), "transform" );
     sink = gst_bin_get_by_name( GST_BIN( pipeline2 ), "videosink" );
+
+    g_signal_connect (decodebin, "pad-added", G_CALLBACK (cb_new_pad), transform);
     g_object_set (sink, "widget", (void*) widget2, NULL);
+    g_object_unref (decodebin);
+    g_object_unref (transform);
     g_object_unref (sink);
 
     gst_element_set_state (pipeline1, GST_STATE_PLAYING);
     gst_element_set_state (pipeline2, GST_STATE_PLAYING);
 
     widget->show();
-    
-    QWidget* test = new QWidget(this);
-    test->setGeometry(0,0,640,400);
-    test->setStyleSheet("border: 5px solid red;");
-    
-    QHBoxLayout* layout = new QHBoxLayout();
-    test->setLayout(layout);
+    widget2->show();
 
-    QLabel* lbl = new QLabel();
-    lbl->setText("Loading...");
-    layout->addWidget(lbl);
-    test->show();
+
+    
+    QWidget* border = new QWidget(this);
+    border->setGeometry(0,0,640,400);
+    border->setStyleSheet("border: 5px solid red;");
+    border->show();
+
+//    QHBoxLayout* layout = new QHBoxLayout();
+//    test->setLayout(layout);
+
+//    QLabel* lbl = new QLabel();
+//    lbl->setText("Loading...");
+//    layout->addWidget(lbl);
+//    test->show();
 }
 
 MainWindow::~MainWindow()
