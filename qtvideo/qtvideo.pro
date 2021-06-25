@@ -23,10 +23,10 @@ unix {
 
 SOURCES += \
     main.cpp \
-    mainwindow.cpp
+    tlvvideowidget.cpp
 
 HEADERS += \
-    mainwindow.h
+    tlvvideowidget.h
 
 # Default rules for deployment.
 qnx: target.path = /tmp/$${TARGET}/bin
