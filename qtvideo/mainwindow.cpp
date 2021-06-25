@@ -5,8 +5,6 @@
 #include <gst/gst.h>
 #include <QLabel>
 #include <QGraphicsTextItem>
-#include <QGlib/Connect>
-#include <QGlib/Signal>
 #include <QPainter>
 #include <QEvent>
 
@@ -50,14 +48,14 @@ MainWindow::MainWindow(QWidget *parent)
     GstElement  *sink, *decodebin, *transform;
     
     /* Create gstreamer elements */
-    //pipeline1 = gst_parse_launch( "rtspsrc location=rtsp://root:pass@80.251.97.97/axis-media/media.amp?streamprofile=MMI ! decodebin name=decodebin ! imxg2dvideotransform name=transform ! video/x-raw, width=1280, height=800, format=BGRA ! qwidget5videosink name=videosink", &err );
-    //pipeline2 = gst_parse_launch( "rtspsrc location=rtsp://root:pass@80.251.97.98/axis-media/media.amp?streamprofile=MMI ! decodebin name=decodebin ! imxg2dvideotransform name=transform ! video/x-raw, width=640, height=400, format=BGRA ! qwidget5videosink name=videosink", &err );
+    pipeline1 = gst_parse_launch( "rtspsrc location=rtsp://root:pass@80.251.97.97/axis-media/media.amp?streamprofile=MMI ! decodebin name=decodebin ! imxg2dvideotransform name=transform ! video/x-raw, width=1280, height=800, format=BGRA ! qt5videosink name=videosink", &err );
+    pipeline2 = gst_parse_launch( "rtspsrc location=rtsp://root:pass@80.251.97.98/axis-media/media.amp?streamprofile=MMI ! decodebin name=decodebin ! imxg2dvideotransform name=transform ! video/x-raw, width=640, height=400, format=BGRA ! qt5videosink name=videosink", &err );
 
     //pipeline1 = gst_parse_launch( "videotestsrc ! qwidget5videosink name=videosink", &err );
     //pipeline2 = gst_parse_launch( "videotestsrc ! qwidget5videosink name=videosink", &err );
 
-    pipeline1 = gst_parse_launch( "videotestsrc ! qt5videosink name=videosink", &err );
-    pipeline2 = gst_parse_launch( "videotestsrc ! qt5videosink name=videosink", &err );
+    //pipeline1 = gst_parse_launch( "videotestsrc ! qt5videosink name=videosink", &err );
+    //pipeline2 = gst_parse_launch( "videotestsrc ! qt5videosink name=videosink", &err );
 
     if (!pipeline1 || !pipeline2) {
         g_printerr ("One element could not be created. Exiting.\n");
@@ -121,7 +119,10 @@ bool MainWindow::eventFilter(QObject* o, QEvent* e)
 
         painter.setPen(pen);
         painter.drawRect(in->x(),in->y(),in->width(),in->height());
-    }
+
+        painter.rotate((qreal)50);
+        painter.setFont(QFont("Verdana", 12, QFont::Normal));
+        painter.drawText(100, 100, "NORMAL TEXT");                  }
 
     // call base class implementation
     return QWidget::eventFilter(o, e);

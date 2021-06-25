@@ -17,7 +17,7 @@ DEFINES += QT_DEPRECATED_WARNINGS
 
 unix {
     CONFIG += link_pkgconfig
-    PKGCONFIG += gstreamer-1.0 gstreamer-audio-1.0 gstreamer-video-1.0 Qt5GLib-2.0
+    PKGCONFIG += gstreamer-1.0 gstreamer-audio-1.0 gstreamer-video-1.0
 #    PKGCONFIG += Qt5GStreamer-1.0 Qt5GStreamerUi-1.0 Qt5GLib-2.0 Qt5GStreamerUtils-1.0
 }
 
