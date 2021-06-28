@@ -7,28 +7,25 @@
 #include <QTime>
 #include <QMainWindow>
 
-class TlvVideoWidget : public QMainWindow
+class TlvVideoWidget : public QOpenGLWidget
 {
     Q_OBJECT
 public:
-    TlvVideoWidget();
-    int widget1_initialized;
-    int widget2_initialized;
+    TlvVideoWidget(QOpenGLWidget *parent = 0, QString uri = "");
+    ~TlvVideoWidget();
+    int initialized;
 
 private:
-    GstElement *pipeline1;
-    GstElement *pipeline2;
+    GstElement *pipeline;
+    GstElement  *sink;
 
     QTime m_time;
     int m_frameCount;
 
 public:
-    QOpenGLWidget *widget;
-    QOpenGLWidget *widget2;
-    ~TlvVideoWidget();
 
 protected:
-    bool eventFilter(QObject* o, QEvent* e);
+    void paintEvent(QPaintEvent *);
 };
 
 #endif // TLVVIDEOWIDGET_H

@@ -8,10 +8,11 @@
 #include <QEvent>
 #include <QOpenGLWidget>
 #include <QOpenGLContext>
+#include <QFile>
 
 static void forceUpdate(void*, gpointer* user_data)
 {
-    QOpenGLWidget* widget = reinterpret_cast<QOpenGLWidget*>(user_data);
+    TlvVideoWidget* widget = reinterpret_cast<TlvVideoWidget*>(user_data);
     widget->update();
 }
 
@@ -31,113 +32,87 @@ static void cb_new_pad (GstElement *element, GstPad *pad, gpointer data)
 }
 
 
-TlvVideoWidget::TlvVideoWidget()
+TlvVideoWidget::TlvVideoWidget(QOpenGLWidget *parent, QString pipe_desc)
+    : QOpenGLWidget(parent)
 {
-    widget1_initialized = 0;
-    widget2_initialized = 0;
+    initialized = 0;
     m_frameCount = 0;
 
-    widget = new QOpenGLWidget(this);
-    widget->setGeometry(0,0,1280,800);
-    widget->installEventFilter(this);
-
-    widget2 = new QOpenGLWidget(this);
-    widget2->setGeometry(0,0,640,400);
-    widget2->installEventFilter(this);
-
     GError *err = NULL;
-    GstElement  *sink;
+    GstElement *decodebin, *transform;
 
-    //    /* Create gstreamer elements */
-    //    //pipeline1 = gst_parse_launch( "rtspsrc location=rtsp://root:pass@80.251.97.97/axis-media/media.amp?streamprofile=MMI ! decodebin name=decodebin ! imxg2dvideotransform name=transform ! video/x-raw, width=1280, height=800, format=BGRA ! qt5glvideosink name=videosink", &err );
-    //    //pipeline2 = gst_parse_launch( "rtspsrc location=rtsp://root:pass@80.251.97.98/axis-media/media.amp?streamprofile=MMI ! decodebin name=decodebin ! imxg2dvideotransform name=transform ! video/x-raw, width=640, height=400, format=BGRA ! qt5glvideosink name=videosink", &err );
+    if(pipe_desc.length() > 0)
+        pipeline = gst_parse_launch( pipe_desc.toStdString().c_str(), &err );
+    else
+        pipeline = gst_parse_launch( "videotestsrc ! video/x-raw,framerate=25/1,format=I420 ! qt5glvideosink name=videosink", &err );
 
-    //    //pipeline1 = gst_parse_launch( "videotestsrc ! qwidget5videosink name=videosink", &err );
-    //    //pipeline2 = gst_parse_launch( "videotestsrc ! qwidget5videosink name=videosink", &err );
-
-    pipeline1 = gst_parse_launch( "videotestsrc ! video/x-raw, format=I420, framerate=100/1 ! qt5glvideosink name=videosink", &err );
-    pipeline2 = gst_parse_launch( "videotestsrc ! video/x-raw, format=I420, framerate=100/1 ! qt5glvideosink name=videosink", &err );
-
-    if (!pipeline1 || !pipeline2) {
+    if (!pipeline) {
         g_printerr ("One element could not be created. Exiting.\n");
     }
 
+    sink = gst_bin_get_by_name( GST_BIN( pipeline ), "videosink" );
+    g_signal_connect(sink, "update" , G_CALLBACK(forceUpdate), this);
 
-    sink = gst_bin_get_by_name( GST_BIN( pipeline1 ), "videosink" );
-    g_signal_connect(sink, "update" , G_CALLBACK(forceUpdate), widget);
-    g_object_unref (sink);
+    decodebin = gst_bin_get_by_name( GST_BIN( pipeline ), "decodebin" );
+    transform = gst_bin_get_by_name( GST_BIN( pipeline ), "transform" );
 
-    sink = gst_bin_get_by_name( GST_BIN( pipeline2 ), "videosink" );
-    g_signal_connect(sink, "update" , G_CALLBACK(forceUpdate), widget2);
-    g_object_unref (sink);
+    g_signal_connect (decodebin, "pad-added", G_CALLBACK (cb_new_pad), transform);
+    g_object_unref (decodebin);
+    g_object_unref (transform);
 
-    widget->show();
-    widget2->show();
+    //    g_object_unref (sink);
 }
 
 TlvVideoWidget::~TlvVideoWidget()
 {
-
+    g_object_unref (sink);
+    g_object_unref (pipeline);
 }
 
-bool TlvVideoWidget::eventFilter(QObject* o, QEvent* e)
+void TlvVideoWidget::paintEvent(QPaintEvent *)
 {
-    QOpenGLWidget* in = reinterpret_cast<QOpenGLWidget*>(o);
+    static float fps;
 
-    if ((in==widget || in==widget2) && e && e->type() == QEvent::Paint) {
-        if (m_frameCount%60 == 0) {
-            if(m_time.elapsed() != 0)
-                qDebug("FPS is %f\n", m_frameCount / (float(m_time.elapsed()) / 1000.0f));
-
-            m_time.restart();
-            m_frameCount = 0;
-        }
-        m_frameCount++;
-
-        GstElement  *sink;
-        if(in==widget && widget1_initialized==0)
+    if (m_frameCount%60 == 0) {
+        if(m_time.elapsed() != 0)
         {
-            sink = gst_bin_get_by_name( GST_BIN( pipeline1 ), "videosink" );
-            in->makeCurrent();
-            g_object_set (sink, "glcontext", (void*) QOpenGLContext::currentContext(),NULL);
-            in->doneCurrent();
-            gst_element_set_state (pipeline1, GST_STATE_PLAYING);
-            widget1_initialized = 1;
+            fps = m_frameCount / (float(m_time.elapsed()) / 1000.0f);
+            qDebug("FPS is %f\n", fps);
         }
-        else if(in==widget2 && widget2_initialized==0)
-        {
-            sink = gst_bin_get_by_name( GST_BIN( pipeline2 ), "videosink" );
-            in->makeCurrent();
-            g_object_set (sink, "glcontext", (void*) QOpenGLContext::currentContext(),NULL);
-            in->doneCurrent();
-            gst_element_set_state (pipeline2, GST_STATE_PLAYING);
-            widget2_initialized = 1;
-        }
-        else {
-            QPainter painter(in);
 
-            sink = gst_bin_get_by_name( GST_BIN( in==widget ? pipeline1: pipeline2 ), "videosink" );
-            g_signal_emit_by_name(sink, "paint", (void*) &painter,(qreal) in->x(), (qreal) in->y(), (qreal) in->width(), (qreal) in->height());
-            g_object_unref (sink);
-
-            QPen pen;
-
-            pen.setStyle(Qt::DashDotLine);
-            pen.setWidth(10);
-            pen.setBrush(Qt::red);
-            pen.setCapStyle(Qt::RoundCap);
-            pen.setJoinStyle(Qt::RoundJoin);
-
-            painter.setPen(pen);
-            painter.drawRect(in->x(),in->y(),in->width(),in->height());
-
-            painter.rotate((qreal)50);
-            painter.setFont(QFont("Verdana", 12, QFont::Normal));
-            painter.drawText(100, 100, "NORMAL TEXT");
-            painter.end();
-        }
+        m_time.restart();
+        m_frameCount = 0;
     }
+    m_frameCount++;
 
-    // call base class implementation
-   return QWidget::eventFilter(o, e);
+    if(initialized==0)
+    {
+        makeCurrent();
+        g_object_set (sink, "glcontext", (void*) QOpenGLContext::currentContext(),NULL);
+        doneCurrent();
+        gst_element_set_state (pipeline, GST_STATE_PLAYING);
+        initialized = 1;
+    }
+    else {
+        QPainter painter(this);
+        g_signal_emit_by_name(sink, "paint", (void*) &painter,(qreal) x(), (qreal) y(), (qreal) width(), (qreal) height());
+
+        QPen pen;
+
+        pen.setStyle(Qt::DashDotLine);
+        pen.setWidth(10);
+        pen.setBrush(Qt::red);
+        pen.setCapStyle(Qt::RoundCap);
+        pen.setJoinStyle(Qt::RoundJoin);
+
+        painter.setPen(pen);
+        painter.drawRect(x(),y(),width(),height());
+
+        painter.translate(width() - 50,height() - 50);
+        painter.rotate((qreal)270);
+
+        painter.drawText(0, 0, QString::number(fps) + " fps");
+        painter.end();
+    }
 }
+
