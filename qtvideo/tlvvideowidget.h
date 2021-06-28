@@ -2,27 +2,30 @@
 #define TLVVIDEOWIDGET_H
 
 #include <QObject>
-#include <QGLWidget>
+#include <QOpenGLWidget>
 #include <gst/gst.h>
+#include <QTime>
+#include <QMainWindow>
 
-class TlvVideoWidget : public QGLWidget
+class TlvVideoWidget : public QMainWindow
 {
     Q_OBJECT
 public:
     TlvVideoWidget();
+    int widget1_initialized;
+    int widget2_initialized;
 
 private:
     GstElement *pipeline1;
     GstElement *pipeline2;
 
+    QTime m_time;
+    int m_frameCount;
 
 public:
-    QGLWidget *widget;
-    QGLWidget *widget2;
+    QOpenGLWidget *widget;
+    QOpenGLWidget *widget2;
     ~TlvVideoWidget();
-
-signals:
-    void onPaint(QPaintEvent *event);
 
 protected:
     bool eventFilter(QObject* o, QEvent* e);
