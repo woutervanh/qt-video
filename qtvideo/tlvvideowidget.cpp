@@ -32,7 +32,7 @@ static void cb_new_pad (GstElement *element, GstPad *pad, gpointer data)
 }
 
 
-TlvVideoWidget::TlvVideoWidget(QOpenGLWidget *parent, QString pipe_desc)
+TlvVideoWidget::TlvVideoWidget(QWidget *parent, QString pipe_desc)
     : QOpenGLWidget(parent)
 {
     initialized = 0;
@@ -69,6 +69,59 @@ TlvVideoWidget::~TlvVideoWidget()
     g_object_unref (pipeline);
 }
 
+void TlvVideoWidget::paintVideo(QPainter* painter, int rotateMethod)
+{
+    static int rotation;
+    rotation++;
+
+    switch(rotateMethod)
+    {
+    case 1: //method1 90CW 1
+        painter->translate(width(),0);
+        painter->rotate((qreal)(90));
+        g_signal_emit_by_name(sink, "paint", (void*) painter,(qreal) 0, (qreal) 0, (qreal) height(), (qreal) width());
+        break;
+    case 2: //method2 180 2
+        painter->translate(width(),height());
+        painter->rotate((qreal)(180));
+        g_signal_emit_by_name(sink, "paint", (void*) painter,(qreal) 0, (qreal) 0, (qreal) width(), (qreal) height());
+        break;
+    case 3: //method3 90CCW 3
+        painter->translate(0,height());
+        painter->rotate((qreal)(270));
+        g_signal_emit_by_name(sink, "paint", (void*) painter,(qreal) 0, (qreal) 0, (qreal) height(), (qreal) width());
+        break;
+    case 4: //Horizontal flip 4
+        painter->translate(width(),0);
+        painter->scale(-1.0, 1.0);
+        g_signal_emit_by_name(sink, "paint", (void*) painter,(qreal) 0, (qreal) 0, (qreal) width(), (qreal) height());
+        break;
+    case 5: //Vertical flip 5
+        painter->translate(0,height());
+        painter->scale(1.0, -1);
+        g_signal_emit_by_name(sink, "paint", (void*) painter,(qreal) 0, (qreal) 0, (qreal) width(), (qreal) height());
+        break;
+    case 6: //upper-left-diagonal
+        painter->translate(0,0);
+        painter->rotate((qreal)(90));
+        g_signal_emit_by_name(sink, "paint", (void*) painter,(qreal) 0, (qreal) 0, (qreal) height(), (qreal) -width());
+        break;
+    case 7: //upper-left-diagonal 7
+        painter->translate(width(),height());
+        painter->rotate((qreal)(90));
+        g_signal_emit_by_name(sink, "paint", (void*) painter,(qreal) 0, (qreal) 0, (qreal) -height(), (qreal) width());
+        break;
+    case 8:
+        painter->translate(width()/2,height()/2);
+        painter->rotate((qreal)(rotation%360));
+        g_signal_emit_by_name(sink, "paint", (void*) painter,(qreal) 0, (qreal) 0, (qreal) -width()/2, (qreal) -height()/2);
+        break;
+    default:
+        g_signal_emit_by_name(sink, "paint", (void*) painter,(qreal) 0, (qreal) 0, (qreal) width(), (qreal) height());
+        break;
+    }
+}
+
 void TlvVideoWidget::paintEvent(QPaintEvent *)
 {
     static float fps;
@@ -87,15 +140,15 @@ void TlvVideoWidget::paintEvent(QPaintEvent *)
 
     if(initialized==0)
     {
-        makeCurrent();
-        g_object_set (sink, "glcontext", (void*) QOpenGLContext::currentContext(),NULL);
-        doneCurrent();
+        g_object_set (sink, "qopenglwidget", (void*)this, NULL);
         gst_element_set_state (pipeline, GST_STATE_PLAYING);
         initialized = 1;
     }
     else {
         QPainter painter(this);
-        g_signal_emit_by_name(sink, "paint", (void*) &painter,(qreal) x(), (qreal) y(), (qreal) width(), (qreal) height());
+        painter.save();
+
+        paintVideo(&painter, 8);
 
         QPen pen;
 
@@ -105,8 +158,10 @@ void TlvVideoWidget::paintEvent(QPaintEvent *)
         pen.setCapStyle(Qt::RoundCap);
         pen.setJoinStyle(Qt::RoundJoin);
 
+        painter.restore();
         painter.setPen(pen);
-        painter.drawRect(x(),y(),width(),height());
+
+        painter.drawRect((qreal) 0, 0,width(),height());
 
         painter.translate(width() - 50,height() - 50);
         painter.rotate((qreal)270);

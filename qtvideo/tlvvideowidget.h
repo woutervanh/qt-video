@@ -11,7 +11,7 @@ class TlvVideoWidget : public QOpenGLWidget
 {
     Q_OBJECT
 public:
-    TlvVideoWidget(QOpenGLWidget *parent = 0, QString uri = "");
+    TlvVideoWidget(QWidget *parent = 0, QString uri = "");
     ~TlvVideoWidget();
     int initialized;
 
@@ -22,7 +22,7 @@ private:
     QTime m_time;
     int m_frameCount;
 
-public:
+    void paintVideo(QPainter* painter, int rotateMethod);
 
 protected:
     void paintEvent(QPaintEvent *);
